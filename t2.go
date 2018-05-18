@@ -1,3 +1,31 @@
+/*
+============================
+手机	=> 服务 =>设备
+============================
+1.手机上线，获取设备列表
+============================
+设备序号	设备名称	设备状态
+D50000	三星设备	可选/锁定/预约
+============================
+2.手机选择设备，分配设备=>设备配对
+============================
+手机序号	设备序号	设备状态
+C10000	D50000	进行中/已完成
+============================
+3.手机操作技能，发动技能指令=>服务
+============================
+设备序号	设备技能
+D50000	up
+D50000	down
+D50000	left
+D50000	right
+D50000	start
+D50000	stop
+D50000	rocker
+============================
+4.解析配对设备，发送技能指令=>设备
+============================
+*/
 package main
 
 import (
@@ -8,34 +36,34 @@ import (
 	"sync"
 )
 
-var wg_server sync.WaitGroup
+var waitGroup sync.WaitGroup
 var clients = make(map[string]net.Conn)
 var devices = make(map[string]net.Conn)
-
-//var queues map[string]string
-// 再使用make函数创建一个非nil的map，nil map不能赋值
 var queues = make(map[string]string)
 
+//var queues map[string]string
+
 const (
-	//绑定IP地址
-	//ip = "127.0.0.1"
-	ip = "192.168.1.79"
-	//绑定端口号
-	port = 110
+	tcpIp = "127.0.0.1:1000"
 )
 
 func main() {
-	listen, err := net.ListenTCP("tcp", &net.TCPAddr{net.ParseIP(ip), port, ""})
+	// 绑定地址
+	tcpAddr, err := net.ResolveTCPAddr("tcp", tcpIp)
+	if err != nil {
+		fmt.Println("绑定地址失败:", err.Error())
+		return
+	}
+	// 监听端口
+	listen, err := net.ListenTCP("tcp", tcpAddr)
 	if err != nil {
 		fmt.Println("监听端口失败:", err.Error())
 		return
 	}
-	fmt.Println("已初始化连接，等待终端连接...")
-	Server(listen)
+	fmt.Println("已初始化连接,等待终端连接...")
+	start(listen)
 }
-func Server(listen *net.TCPListener) {
-	//
-	wg_server.Add(1)
+func start(listen *net.TCPListener) {
 	//接受Client消息
 	for {
 		conn, err := listen.AcceptTCP()
@@ -45,43 +73,33 @@ func Server(listen *net.TCPListener) {
 		}
 		//fmt.Println(strings.Contains("widuu", "wi")) //true
 		//fmt.Println(strings.Contains("wi", "widuu")) //false
-
-		var ipStr = conn.RemoteAddr().String()
-		//fmt.Println(strings.Contains(ipStr, "102")) //true
-		//strSplit := strings.Split(ipStr, ":")
-		//fmt.Println(strSplit[1])
-		ipStrSplit := strings.Split(ipStr, ":")
+		//
+		var clientIp string = conn.RemoteAddr().String()
+		ipStrSplit := strings.Split(clientIp, ":")
 		port, err := strconv.Atoi(ipStrSplit[1])
 		//
 		if port < 500 {
-			devices[conn.RemoteAddr().String()] = conn
-			fmt.Println("设备端：" + ipStr + "上线")
+			devices[clientIp] = conn
+			fmt.Println("设备端:" + clientIp + "上线")
 			fmt.Println(devices)
 		} else {
-			clients[conn.RemoteAddr().String()] = conn
-			fmt.Println("客户端：" + ipStr + "上线")
+			clients[clientIp] = conn
+			fmt.Println("客户端:" + clientIp + "上线")
 			fmt.Println(clients)
 		}
-		go Handle(conn)
+		//
+		waitGroup.Add(1)
+		go handle(conn)
 	}
-	wg_server.Done()
+	waitGroup.Wait()
 }
-func Handle(conn net.Conn) {
+func handle(conn net.Conn) {
 	//conn.SetReadDeadline(time.Now().Add(2 * time.Minute))
 	defer conn.Close()
 	data := make([]byte, 1024)
 	for {
-
-/*//创建一个缓冲*Reader 并读取对应的数据
-    data, err := bufio.NewReader(conn).ReadString('\n')
-    //如果数据读取完 err 会变成 EOF  这个并不是错误
-    if err != nil && err != io.EOF {
-        fmt.Println(err.Error())
-    }
-    log.Println(data)*/
-        
 		i, err := conn.Read(data)
-		fmt.Println("客户端", conn.RemoteAddr().String(), "发来数据:", string(data[0:i]))
+		fmt.Println("客户端:" + conn.RemoteAddr().String() + "发来数据:" + string(data[0:i]))
 		if err != nil {
 			//fmt.Println("读取客户端数据错误:", err.Error())
 			//fmt.Println("conn closed")
@@ -93,31 +111,40 @@ func Handle(conn net.Conn) {
 			DeleteClient(conn)
 			break
 		}
+		/*
+			var deviceNo = string(data[0:1])
+			if devices[deviceNo] {
+				fmt.Println(devices[deviceNo])
+			} else {
+				DeleteDevice(conn)
+			}
+		*/
 		var no = string(data[0:1])
 		var ip = ""
 		if no == "1" {
-			ip = "192.168.1.79:102"
+			ip = "127.0.0.1:102"
 		} else if no == "2" {
-			ip = "192.168.1.79:101"
+			ip = "127.0.0.1:101"
 		} else {
 			DeleteDevice(conn)
 			break
 		}
 		//
 		var share = devices[ip]
-		fmt.Println(share)
+		//fmt.Println(share)
 		//
 		if share != nil {
-			fmt.Println("转发；", conn.RemoteAddr().String(), "=>", share.RemoteAddr().String(), "数据:", string(data[0:i]))
+			fmt.Println("转发:" + conn.RemoteAddr().String() + "=>" + share.RemoteAddr().String() + "数据:" + string(data[0:i]))
 			share.Write(data[2:i])
 			queues[no] = ip
 			fmt.Println(queues)
 		} else {
-			fmt.Println("设备端：", conn.RemoteAddr().String(), "丢失")
+			fmt.Println("设备端丢失")
 			conn.Write([]byte("exit"))
 		}
 	}
-
+	// 任务完成
+	waitGroup.Done()
 }
 func DeleteClient(conn net.Conn) {
 	//fmt.Println(clients)
