@@ -2,7 +2,7 @@
 ============================
 手机	=> 服务 =>设备
 ============================
-1.手机上线，获取设备列表
+1.手机上线，获取设备在线列表
 ============================
 设备序号	设备名称	设备状态
 D50000	三星设备	可选/锁定/预约
@@ -30,16 +30,20 @@ package main
 
 import (
 	"fmt"
+	"log"
 	"net"
 	"strconv"
 	"strings"
 	"sync"
+	//"time"
 )
 
 var waitGroup sync.WaitGroup
 var clients = make(map[string]net.Conn)
 var devices = make(map[string]net.Conn)
 var queues = make(map[string]string)
+
+//var clients1 [][]string
 
 //var queues map[string]string
 
@@ -60,7 +64,7 @@ func main() {
 		fmt.Println("监听端口失败:", err.Error())
 		return
 	}
-	fmt.Println("已初始化连接,等待终端连接...")
+	log.Println("已初始化连接,等待终端连接...")
 	start(listen)
 }
 func start(listen *net.TCPListener) {
@@ -80,12 +84,13 @@ func start(listen *net.TCPListener) {
 		//
 		if port < 500 {
 			devices[clientIp] = conn
-			fmt.Println("设备端:" + clientIp + "上线")
-			fmt.Println(devices)
+			log.Println("设备端:", clientIp+"上线")
+			log.Println(devices)
 		} else {
 			clients[clientIp] = conn
-			fmt.Println("客户端:" + clientIp + "上线")
-			fmt.Println(clients)
+			log.Println("客户端:", clientIp+"上线")
+			log.Println(clients)
+			conn.Write([]byte("deviceList"))
 		}
 		//
 		waitGroup.Add(1)
@@ -99,7 +104,6 @@ func handle(conn net.Conn) {
 	data := make([]byte, 1024)
 	for {
 		i, err := conn.Read(data)
-		fmt.Println("客户端:" + conn.RemoteAddr().String() + "发来数据:" + string(data[0:i]))
 		if err != nil {
 			//fmt.Println("读取客户端数据错误:", err.Error())
 			//fmt.Println("conn closed")
@@ -111,6 +115,7 @@ func handle(conn net.Conn) {
 			DeleteClient(conn)
 			break
 		}
+		log.Println("客户端:", conn.RemoteAddr().String()+"发来数据:", string(data[0:i]))
 		/*
 			var deviceNo = string(data[0:1])
 			if devices[deviceNo] {
@@ -134,12 +139,12 @@ func handle(conn net.Conn) {
 		//fmt.Println(share)
 		//
 		if share != nil {
-			fmt.Println("转发:" + conn.RemoteAddr().String() + "=>" + share.RemoteAddr().String() + "数据:" + string(data[0:i]))
+			log.Println("服务端:", conn.RemoteAddr().String()+"=>"+share.RemoteAddr().String()+"数据:"+string(data[0:i]))
 			share.Write(data[2:i])
 			queues[no] = ip
 			fmt.Println(queues)
 		} else {
-			fmt.Println("设备端丢失")
+			log.Println("设备端已下线")
 			conn.Write([]byte("exit"))
 		}
 	}
@@ -148,19 +153,17 @@ func handle(conn net.Conn) {
 }
 func DeleteClient(conn net.Conn) {
 	//fmt.Println(clients)
-	fmt.Println("客户端" + conn.RemoteAddr().String() + " 已下线")
+	log.Println("客户端:", conn.RemoteAddr().String()+"下线")
 	delete(clients, conn.RemoteAddr().String())
-	//fmt.Println("delete close conn")
-	fmt.Println(clients)
+	log.Println(clients)
 	conn.Write([]byte("exit"))
 	return
 }
 func DeleteDevice(conn net.Conn) {
 	//fmt.Println(devices)
-	fmt.Println("设备端" + conn.RemoteAddr().String() + " 已下线")
+	log.Println("设备端:", conn.RemoteAddr().String()+"下线")
 	delete(devices, conn.RemoteAddr().String())
-	//fmt.Println("delete close conn")
-	fmt.Println(devices)
+	log.Println(devices)
 	conn.Write([]byte("exit"))
 	return
 }
