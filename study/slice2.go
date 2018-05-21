@@ -18,6 +18,8 @@ func main() {
 	numbers = append(numbers, 2, 3, 4)
 	printSlice(numbers)
 
+	fmt.Println(numbers[1:2], "\n")
+
 	/* 创建切片 numbers1 是之前切片的两倍容量*/
 	numbers1 := make([]int, len(numbers), (cap(numbers))*2)
 
