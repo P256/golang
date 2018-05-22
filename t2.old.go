@@ -1,3 +1,31 @@
+/*
+============================
+手机	=> 服务 =>设备
+============================
+1.手机上线，获取设备在线列表
+============================
+设备序号	设备名称	设备状态
+D50000	三星设备	可选/锁定/预约
+============================
+2.手机选择设备，分配设备=>设备配对
+============================
+手机序号	设备序号	设备状态
+C10000	D50000	进行中/已完成
+============================
+3.手机操作技能，发动技能指令=>服务
+============================
+设备序号	设备技能
+D50000	up
+D50000	down
+D50000	left
+D50000	right
+D50000	start
+D50000	stop
+D50000	rocker
+============================
+4.解析配对设备，发送技能指令=>设备
+============================
+*/
 package main
 
 import (
@@ -14,9 +42,21 @@ var waitGroup sync.WaitGroup
 var clientConn = make(map[string]net.Conn)
 var deviceConn = make(map[string]net.Conn)
 
+var queues = make(map[string]string)
+
 //var deviceList = make(map[int]string)
 var deviceList []string
+
 var groupList = make(map[string]interface{})
+
+/*var deviceList = make(map[int]string)
+ */
+
+var numbers []int
+
+//var clientConn1 [][]string
+
+//var queues map[string]string
 
 const (
 	TCPIP = "0.0.0.0:1000"
@@ -43,11 +83,9 @@ func start(listen *net.TCPListener) {
 	for {
 		conn, err := listen.AcceptTCP()
 		if err != nil {
-			fmt.Println("接受客户端连接异常:", err.Error())
+			log.Println("接受客户端连接异常:", err.Error())
 			continue
 		}
-		//fmt.Println(strings.Contains("widuu", "wi")) //true
-		//fmt.Println(strings.Contains("wi", "widuu")) //false
 		//
 		waitGroup.Add(1)
 		go handleTerminal(conn)
@@ -108,6 +146,40 @@ func handleTerminal(conn net.Conn) {
 			deleteConn(conn, remoteType, remoteIp)
 			break
 		}
+		// json方式
+		/*jsonStr := string(data[0:i])
+		log.Println("终端:"+conn.RemoteAddr().String()+"发来数据:", jsonStr)
+		// 过滤标记
+		jsonStr = strings.Replace(jsonStr, "'", "\"", -1)
+		jsonStr = strings.Replace(jsonStr, "\n", "", -1)
+		// var dat map[string]interface{}
+		var dat map[string]interface{}
+		if err := json.Unmarshal([]byte(jsonStr), &dat); err == nil {
+			log.Println(dat)
+		} else {
+			log.Println(err)
+		}
+		// 设备序号
+		//var deviceId = dat["deviceId"]
+		//fmt.Println(deviceId, reflect.TypeOf(deviceId).String())
+		// 输入参数1
+		var deviceIp interface{}
+		var deviceCmd string
+		if _, ok := dat["deviceIp"]; ok {
+			deviceIp = dat["deviceIp"]
+		} else {
+			DeleteClient(conn)
+			break
+		}
+		// 输入参数2
+		if _, ok2 := dat["action"]; ok2 {
+			//deviceCmd = dat["action"]
+			deviceCmd = "123"
+		} else {
+			DeleteClient(conn)
+			break
+		}*/
+
 		// 字符串方式
 		dataStr := string(data[0:i])
 		log.Println("终端:" + remoteIp + "=>" + dataStr)
@@ -164,17 +236,13 @@ func deleteConn(conn net.Conn, remoteType string, remoteIp string) {
 	if remoteType == "device" {
 		log.Println("设备端:" + remoteIp + "下线")
 		delete(deviceConn, remoteIp)
-		log.Println("设备列:", deviceConn)
-		// TODO 删除 deviceList groupList
+		log.Println(deviceConn)
 	} else {
 		log.Println("客户端:" + remoteIp + "下线")
 		delete(clientConn, remoteIp)
-		log.Println("设备列:", clientConn)
-		// TODO 删除 groupList
+		log.Println(clientConn)
 	}
-	//
-	log.Println("组队列:", groupList)
-	conn.Write([]byte(remoteIp + ":exit"))
+	conn.Write([]byte("exit"))
 }
 
 /*
@@ -183,4 +251,5 @@ https://blog.csdn.net/Soooooooo8/article/details/70163475
 https://blog.csdn.net/lanyang123456/article/details/78158255?locationNum=10&fps=1
 https://blog.csdn.net/liwenjie0912/article/details/70187778
 https://blog.csdn.net/wdy_2099/article/details/75073737
+
 */
