@@ -111,58 +111,41 @@ func handleTerminals(conn net.Conn) {
 		}
 		// 字符串方式
 		dataStr := string(data[0:i])
+		//
 		if remoteType == "device" {
 			log.Println("设备端:", remoteIp+"发来数据=>"+dataStr)
 		} else {
 			log.Println("客户端:", remoteIp+"发来数据=>"+dataStr)
 		}
-		// 解析数据
-		dataSplit := strings.Split(dataStr, ",")
-		//fmt.Println(reflect.TypeOf(dataSplit), dataSplit)
 		//
-		var deviceNo string
 		var deviceIp string
-		var deviceCmd string
-		//
-		for j := 0; j < len(dataSplit); j++ {
-			// 第一列为设备编号
-			if j == 0 {
-				// 设备编号
-				deviceNo = dataSplit[j]
-				// 解析设备编号
-				if v, ok := deviceList[deviceNo]; ok {
-					deviceIp = v
-				} else {
-					// 设备列表找不到
-					log.Println("服务端:", "设备端未找到")
-					break
-				}
-			} else if j == 1 {
-				deviceCmd = dataSplit[j]
-			}
-		}
-		//
-		if deviceIp == "" || deviceCmd == "" {
-			log.Println("服务端:", "未找到设备或指令")
-			conn.Write([]byte("notFound"))
-			break
-		}
 		// 是否已组队
-		groupIp := groupList[remoteIp]
-		if groupIp == deviceIp {
+		if _, ok := groupList[remoteIp]; ok {
 			// 设备已组队
+			deviceIp = groupList[remoteIp]
 			log.Println("服务端:", "检测到当前客户端与设备端已组队"+deviceIp)
 			//
 			var relay = deviceConn[deviceIp]
 			//
 			if relay != nil {
-				log.Println("服务端:", remoteIp+"=>"+relay.RemoteAddr().String()+"=>"+deviceCmd)
-				relay.Write([]byte(deviceCmd))
+				log.Println("服务端:", remoteIp+"=>"+relay.RemoteAddr().String()+"=>"+dataStr)
+				relay.Write([]byte(dataStr))
 			} else {
 				log.Println("设备端:", deviceIp+"已下线")
 				conn.Write([]byte("downLine"))
 			}
 		} else {
+			//
+			deviceNo := dataStr
+			// 解析设备编号
+			if v, ok := deviceList[deviceNo]; ok {
+				deviceIp = v
+			} else {
+				// 设备列表找不到设备
+				log.Println("服务端:", "设备端未找到")
+				conn.Write([]byte("notFound"))
+				break
+			}
 			// 设备是否可用
 			var readOnly = false
 			for _, value := range groupList {
