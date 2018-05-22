@@ -45,7 +45,7 @@ func startServer() {
 		//
 		log.Println(conn.RemoteAddr().String(), " tcp connect success")
 		// 多个请求发送过来 => 并行处理
-		go handle2(conn)
+		go handle3(conn)
 	}
 }
 
@@ -64,6 +64,8 @@ func handle1(conn net.Conn) {
 
 //
 func handle2(conn net.Conn) {
+	//
+	defer conn.Close()
 	//
 	buf := make([]byte, 1024)
 	for {
@@ -87,4 +89,40 @@ func handle2(conn net.Conn) {
 		fmt.Println(buffer.String())
 		conn.Write([]byte(buffer.String()))
 	}
+}
+
+//
+func handle3(conn net.Conn) {
+	//
+	defer conn.Close()
+	//
+	data := make([]byte, 1024)
+	// 读取数据-<ASCII码值>
+	i, _ := conn.Read(data)
+	// ASCII码方式读取
+	dataStr1 := data[0:i]
+	fmt.Println("ASCII码=>", dataStr1)
+	// 字符串方式读取
+	dataStr2 := string(data[0:i])
+	fmt.Println("字符串=>", dataStr2)
+	// 遍历,转为16进制
+	buffer := new(bytes.Buffer)
+	for _, b := range data[:i] {
+		s := strconv.FormatInt(int64(b&0xff), 16)
+		if len(s) == 1 {
+			buffer.WriteString("0")
+		}
+		buffer.WriteString(s)
+	}
+	// 转化为字符串
+	data16 := buffer.String()
+	fmt.Println("data16=>", data16)
+	//conn.Write([]byte(data16))
+	//
+	data162 := []byte(data16)
+	j, _ := conn.Read(data162)
+	data162Str := string(data162[0:j])
+	fmt.Println("data162ASCII码=>", data162[0:j])
+	fmt.Println("data162=>", data162Str)
+	//conn.Write([]byte("414243444546"))
 }
